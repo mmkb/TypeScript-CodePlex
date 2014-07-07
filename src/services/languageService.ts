@@ -70,8 +70,9 @@ module TypeScript.Services {
         getNavigationBarItems(fileName: string): NavigationBarItem[];
 
         getOutliningSpans(fileName: string): OutliningSpan[];
-        getBraceMatchingAtPosition(fileName: string, position: number): TypeScript.TextSpan[];
-        getIndentationAtPosition(fileName: string, position: number, options: TypeScript.Services.EditorOptions): number;
+        getTodoComments(fileName: string, descriptors: TodoCommentDescriptor[]): TodoComment[];
+        getBraceMatchingAtPosition(fileName: string, position: number): TextSpan[];
+        getIndentationAtPosition(fileName: string, position: number, options: EditorOptions): number;
 
         getFormattingEditsForRange(fileName: string, start: number, end: number, options: FormatCodeOptions): TextChange[];
         getFormattingEditsForDocument(fileName: string, options: FormatCodeOptions): TextChange[];
@@ -167,6 +168,19 @@ module TypeScript.Services {
         constructor(public argumentIndex: number,
                     public argumentCount: number) {
 
+        }
+    }
+
+    export class TodoCommentDescriptor {
+        constructor(public text: string,
+                    public priority: number) {
+        }
+    }
+
+    export class TodoComment {
+        constructor(public descriptor: TodoCommentDescriptor,
+                    public message: string,
+                    public position: number) {
         }
     }
 

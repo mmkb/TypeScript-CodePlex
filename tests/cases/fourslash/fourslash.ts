@@ -65,7 +65,7 @@ module FourSlashInterface {
         end: number;
     }
 
-    export class test {
+    export class test_ {
         public markers(): Marker[] {
             return FourSlash.currentTestState.getMarkers();
         }
@@ -311,6 +311,10 @@ module FourSlashInterface {
             FourSlash.currentTestState.verifyOutliningSpans(spans);
         }
 
+        public todoCommentsInCurrentFile(descriptors: string[]) {
+            FourSlash.currentTestState.verifyTodoComments(descriptors, test.ranges());
+        }
+
         public matchingBracePositionInCurrentFile(bracePosition: number, expectedMatchPosition: number) {
             FourSlash.currentTestState.verifyMatchingBracePosition(bracePosition, expectedMatchPosition);
         }
@@ -511,7 +515,7 @@ module FourSlashInterface {
 }
 
 module fs {
-    export var test = new FourSlashInterface.test();
+    export var test = new FourSlashInterface.test_();
     export var goTo = new FourSlashInterface.goTo();
     export var verify = new FourSlashInterface.verify();
     export var edit = new FourSlashInterface.edit();
@@ -523,7 +527,7 @@ module fs {
 function verifyOperationIsCancelled(f) {
     FourSlash.verifyOperationIsCancelled(f);
 }
-var test = new FourSlashInterface.test();
+var test = new FourSlashInterface.test_();
 var goTo = new FourSlashInterface.goTo();
 var verify = new FourSlashInterface.verify();
 var edit = new FourSlashInterface.edit();

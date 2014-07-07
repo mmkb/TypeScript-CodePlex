@@ -135,6 +135,8 @@ module TypeScript.Services {
         // { textSpan: { start: number, length: number }; hintSpan: { start: number, length: number }; bannerText: string; autoCollapse: boolean } [] = [];
         getOutliningSpans(fileName: string): string;
 
+        getTodoComments(fileName: string, todoCommentDescriptors: string): string;
+
         getBraceMatchingAtPosition(fileName: string, position: number): string;
         getIndentationAtPosition(fileName: string, position: number, options: string/*Services.EditorOptions*/): string;
 
@@ -634,6 +636,15 @@ module TypeScript.Services {
                 "getOutliningSpans(\"" + fileName + "\")",
                 () => {
                     var items = this.languageService.getOutliningSpans(fileName);
+                    return items;
+                });
+        }
+
+        public getTodoComments(fileName: string, descriptors: string): string {
+            return this.forwardJSONCall(
+                'getTodoComments("' + fileName + '")',
+                () => {
+                    var items = this.languageService.getTodoComments(fileName, JSON.parse(descriptors));
                     return items;
                 });
         }

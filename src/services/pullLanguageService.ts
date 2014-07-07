@@ -1948,6 +1948,154 @@ module TypeScript.Services {
             return OutliningElementsCollector.collectElements(syntaxTree.sourceUnit());
         }
 
+        private escapeRegExp(str: string): string {
+            return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+        }
+
+        private getTodoCommentsRegExp(descriptors: TodoCommentDescriptor[]): RegExp {
+            // NOTE: ?:  means 'non-capture group'.  It allows us to have groups without having to
+            // filter them out later in the final result array.
+
+            // TODO comments can appear in one of the following forms:
+            //
+            //  1)      // TODO
+            //  2)      /* TODO
+            //  3)      /*
+            //           *   TODO
+            //           */
+            //
+            // The following three regexps are used to match the start of the text up to the TODO
+            // comment portion.
+            var singleLineCommentStart = "(?:\\/\\/\\s*)";
+            var multiLineCommentStart = "(?:\\/\\*\\s*)";
+            var anyNumberOfSpacesAndAsterixesAtStartOfLine = "(?:^(?:\\s|\\*)*)";
+
+            // Match any of the above three TODO comment start regexps.
+            // Note that the outermost group *is* a capture group.  We want to capture the preamble
+            // so that we can determine the starting position of the TODO comment match.
+            var preamble = "(" + anyNumberOfSpacesAndAsterixesAtStartOfLine + "|" + singleLineCommentStart + "|" + multiLineCommentStart + ")";
+
+            // Takes the descriptors and forms a regexp that matches them as if they were literals.
+            // For example, if the descriptors are "TODO(jason)" and "HACK", then this will be:
+            //
+            //      (?:(TODO\(jason\))|(HACK))
+            //
+            // Note that the outermost group is *not* a capture group, but the innermost groups
+            // *are* capture groups.  By capturing the inner literals we can determine after 
+            // matching which descriptor we are dealing with.
+            var literals = "(?:" +descriptors.map(d => "(" + this.escapeRegExp(d.text) + ")").join("|") + ")";
+
+            // After matching a descriptor literal, the following regexp matches the rest of the 
+            // text up to the end of the line.  We don't want to match something like 'TODOBY', so
+            // we ask for a non word character (\W) to follow the match if we're not at the end of
+            // the line.
+            var postamble = "(?:(?:\\W.*$)|$)";
+
+            // This is the portion of the match we'll return as part of the TODO comment result. We
+            // match the literal portion up to the end of the line.
+            var messagePortion = "(" + literals + postamble + ")";
+            var regExpString = preamble + messagePortion;
+
+            // The final regexp will look like this:
+            // /((?:\/\/\s*)|(?:\/\*\s*)|(?:^(?:\s|\*)*))((?:(TODO\(jason\))|(HACK))(?:(?:\W.*$)|$))/gim
+
+            // The flags of the regexp are important here.
+            //  'g' is so that we are doing a global search and can find matches several times
+            //  in the input.
+            //
+            //  'i' is for case insensitivity (We do this to match C#).
+            //
+            //  'm' is so we can find matches in a multiline input.
+            return new RegExp(regExpString, "gim");
+        }
+
+        public getTodoComments(fileName: string, descriptors: TodoCommentDescriptor[]): TodoComment[] {
+            fileName = TypeScript.switchToForwardSlashes(fileName);
+
+            var syntaxTree = this.compiler.getDocument(fileName).syntaxTree();
+            this.cancellationToken.throwIfCancellationRequested();
+
+            var text = syntaxTree.text;
+            var fileContents = text.substr(0, text.length());
+            this.cancellationToken.throwIfCancellationRequested();
+
+            var result: TodoComment[] = [];
+
+            if (descriptors.length > 0) {
+                var regExp = this.getTodoCommentsRegExp(descriptors);
+
+                var matchArray: RegExpExecArray;
+                while (matchArray = regExp.exec(fileContents)) {
+                    this.cancellationToken.throwIfCancellationRequested();
+
+                    // If we got a match, here is what the match array will look like.  Say the source text is:
+                    //
+                    //      "    // hack   1"
+                    //
+                    // The result array with the regexp:    will be:
+                    //
+                    //      ["// hack   1", "// ", "hack   1", undefined, "hack"]
+                    //
+                    // Here are the relevant capture groups:
+                    //  0) The full match for hte entire regex.
+                    //  1) The preamble to the message portion.
+                    //  2) The message portion.
+                    //  3...N) The descriptor that was matched - by index.  'undefined' for each 
+                    //         descriptor that didn't match.  an actual value if it did match.
+                    //
+                    //  i.e. 'undefined' in position 3 above means TODO(jason) didn't match.
+                    //       "hack"      in position 4 means HACK did match.
+                    var firstDescriptorCaptureIndex = 3;
+                    Debug.assert(matchArray.length === descriptors.length + firstDescriptorCaptureIndex);
+
+                    var preamble = matchArray[1];
+                    var matchPosition = matchArray.index + preamble.length;
+
+                    // Ok, we have found a match in the file.  This is ony an acceptable match if
+                    // it is contained within a comment.
+                    var token = findToken(syntaxTree.sourceUnit(), matchPosition);
+
+                    if (matchPosition >= start(token) && matchPosition < end(token)) {
+                        // match was within the token itself.  Not in the comment.  Keep searching
+                        // descriptor.
+                        continue;
+                    }
+
+                    // Looks to be within the trivia.  See if we can find hte comment containing it.
+                    var triviaList = matchPosition < start(token) ? token.leadingTrivia(syntaxTree.text) : token.trailingTrivia(syntaxTree.text);
+                    var trivia = this.findContainingComment(triviaList, matchPosition);
+                    if (trivia === null) {
+                        continue;
+                    }
+
+                    var message = matchArray[2];
+                    var descriptor: TodoCommentDescriptor = undefined;
+                    for (var i = 0, n = descriptors.length; i < n; i++) {
+                        if (matchArray[i + firstDescriptorCaptureIndex]) {
+                            descriptor = descriptors[i];
+                        }
+                    }
+                    Debug.assert(descriptor);
+
+                    result.push(new TodoComment(descriptor, message, matchPosition));
+                }
+            }
+
+            return result;
+        }
+
+        private findContainingComment(triviaList: ISyntaxTriviaList, position: number): ISyntaxTrivia {
+            for (var i = 0, n = triviaList.count(); i < n; i++) {
+                var trivia = triviaList.syntaxTriviaAt(i);
+                var fullEnd = trivia.fullStart() + trivia.fullWidth();
+                if (trivia.isComment() && trivia.fullStart() <= position && position < fullEnd) {
+                    return trivia;
+                }
+            }
+
+            return null;
+        }
+
         // Given a script name and position in the script, return the
         // number of spaces equivalent to the desired smart indent 
         // (assuming the line is empty). Returns "null" in case the
