@@ -1,0 +1,8 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameModuleWithConflictingChild.ts ===
+module conflictingName {
+>conflictingName : conflictingName
+
+  export function conflictingName() {
+>conflictingName : typeof conflictingName
+  }
+}

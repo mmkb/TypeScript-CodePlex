@@ -55,6 +55,10 @@ module Harness {
         (emittedFile: string, emittedLine: number, emittedColumn: number, sourceFile: string, sourceLine: number, sourceColumn: number, sourceName: string): void;
     }
 
+    export interface SourceMapLocalCallback {
+        (emittedStartLine: number, emittedStartColumn: number, emittedEndLine: number, emittedEndColumn: number, emittedFromIdentifier: string, emittedToExpression: string): void;
+    }
+
     // Settings 
     export var userSpecifiedroot = "";
     var global = <any>Function("return this").call(null);
@@ -1029,12 +1033,38 @@ module Harness {
                     }
                     this.sourcemapRecorder.WriteLine("");
                 };
+                var sourceMapLocalCallback = (emittedStartLine: number, emittedStartColumn: number, emittedEndLine: number, emittedEndColumn: number, emittedFromIdentifier: string, emittedToExpression: string): void => {
+                    this.sourcemapRecorder.Write("Local (" + emittedStartLine + "," + emittedStartColumn + ":" + emittedEndLine + "," + emittedEndColumn + ") name (" + emittedFromIdentifier + ") ");
+
+                    if (emittedToExpression === TypeScript.SourceMapScope.HIDDEN_LOCAL) {
+                        this.sourcemapRecorder.Write("hidden");
+                    }
+                    else if (emittedToExpression === emittedFromIdentifier) {
+                        this.sourcemapRecorder.Write("restored");
+                    }
+                    else {
+                        this.sourcemapRecorder.Write("renamed (" + emittedToExpression + ")");
+                    }
+
+                    this.sourcemapRecorder.WriteLine("");
+                };
+
 
                 var output = this.compiler.emitAll(path => host.resolvePath(path));
                 output.outputFiles.forEach(o => {
                     host.writeFile(o.name, o.text, o.writeByteOrderMark);
 
-                    o.sourceMapEntries.forEach(s => sourceMapEmitterCallback(s.emittedFile, s.emittedLine, s.emittedColumn, s.sourceFile, s.sourceLine, s.sourceColumn, s.sourceName));
+                    if (o.sourceMapOutput) {
+                        o.sourceMapOutput.sourceMapEntries.forEach(s => sourceMapEmitterCallback(
+                            s.emittedFile, s.emittedLine, s.emittedColumn, s.sourceFile, s.sourceLine, s.sourceColumn, s.sourceName));
+
+                        o.sourceMapOutput.sourceMapRootScopes.forEach(scope => {
+                            scope.forEachLocalFlat((scope, from, to) => {
+                                sourceMapLocalCallback(scope.startLine, scope.startColumn, scope.endLine, scope.endColumn, from, to);
+                            });
+                        });
+                    }
+
                 });
             }
 

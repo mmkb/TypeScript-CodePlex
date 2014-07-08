@@ -1,0 +1,8 @@
+=== tests/cases/compiler/sourceMapScopeValidationHideExtendsAndSuper.ts ===
+class SuperClass {}
+>SuperClass : SuperClass
+
+class SubClass extends SuperClass {} 
+>SubClass : SubClass
+>SuperClass : SuperClass
+

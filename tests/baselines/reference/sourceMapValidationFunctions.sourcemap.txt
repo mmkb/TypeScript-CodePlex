@@ -85,3 +85,5 @@ Emitted (21, 5) source (12, 5) name (foo)
 Emitted (21, 11) source (12, 12) name (foo)
 Emitted (22, 1) source (13, 1) name (foo)
 Emitted (22, 2) source (13, 2) name (foo)
+Local (6,16:14,2) name (_i) hidden
+Local (15,13:22,2) name (_i) hidden

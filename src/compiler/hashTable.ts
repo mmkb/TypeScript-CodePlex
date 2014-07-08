@@ -147,7 +147,7 @@ module TypeScript {
     }
 
 
-    export class IdentiferNameHashTable<T> extends StringHashTable<T> {
+    export class IdentifierNameHashTable<T> extends StringHashTable<T> {
         public getAllKeys(): string[]{
             var result: string[] = [];
 

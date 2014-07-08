@@ -1,0 +1,10 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedEnumInNode.ts ===
+export enum exportedEnum {
+>exportedEnum : exportedEnum
+
+  one,
+>one : exportedEnum
+
+  two
+>two : exportedEnum
+}

@@ -1,0 +1,18 @@
+
+EmittedFile: (sourceMapScopeValidationRenameExportedEnumInNode.js) sourceFile: (sourceMapScopeValidationRenameExportedEnumInNode.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (1, 2) source (1, 1)
+Emitted (1, 12) source (1, 13)
+Emitted (1, 24) source (1, 25)
+Emitted (2, 5) source (2, 3) name (exportedEnum)
+Emitted (2, 50) source (2, 6) name (exportedEnum)
+Emitted (3, 5) source (3, 3) name (exportedEnum)
+Emitted (3, 50) source (3, 6) name (exportedEnum)
+Emitted (4, 57) source (4, 2)
+Emitted (5, 41) source (4, 2)
+Emitted (6, 1) source (4, 2)
+Local (1,1:6,1) name (exportedEnum) renamed (exports.exportedEnum)
+Local (1,11:4,2) name (exportedEnum) restored
+Local (1,11:4,2) name (one) renamed (exportedEnum.one)
+Local (1,11:4,2) name (two) renamed (exportedEnum.two)

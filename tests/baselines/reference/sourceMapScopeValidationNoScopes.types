@@ -1,0 +1,13 @@
+=== tests/cases/compiler/sourceMapScopeValidationNoScopes.ts ===
+var fileScopeVariable = 1;
+>fileScopeVariable : number
+
+function funcWithThis() {  
+>funcWithThis : typeof funcWithThis
+
+  this.property = 1;
+>this.property = 1 : number
+>this.property : any
+>this : any
+>property : any
+}

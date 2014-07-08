@@ -1,0 +1,9 @@
+=== tests/cases/compiler/sourceMapScopeValidationCaptureThisInFileScope.ts ===
+var arrowFunctionWithThis = () => this.a = 1;
+>arrowFunctionWithThis : () => number
+>() => this.a = 1 : () => number
+>this.a = 1 : number
+>this.a : any
+>this : any
+>a : any
+

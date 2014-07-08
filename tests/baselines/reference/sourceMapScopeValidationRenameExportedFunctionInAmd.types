@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedFunctionInAmd.ts ===
+export function exportedFunction() {}
+>exportedFunction : typeof exportedFunction
+

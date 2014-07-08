@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedClassInNode.ts ===
+export class exportedClass {}
+>exportedClass : exportedClass
+

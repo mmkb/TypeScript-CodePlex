@@ -1,0 +1,12 @@
+=== tests/cases/compiler/sourceMapScopeValidationCaptureThisInFuncDecl.ts ===
+function functionStatementWithCapturedThis() {
+>functionStatementWithCapturedThis : typeof functionStatementWithCapturedThis
+
+  var arrowFunctionWithThis = () => this.a = 1;
+>arrowFunctionWithThis : () => number
+>() => this.a = 1 : () => number
+>this.a = 1 : number
+>this.a : any
+>this : any
+>a : any
+}

@@ -1,0 +1,10 @@
+
+EmittedFile: (sourceMapScopeValidationRenameExportedVariableInNode.js) sourceFile: (sourceMapScopeValidationRenameExportedVariableInNode.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (1, 9) source (1, 12)
+Emitted (1, 25) source (1, 28)
+Emitted (1, 28) source (1, 31)
+Emitted (1, 29) source (1, 32)
+Emitted (2, 1) source (1, 33)
+Local (1,1:2,1) name (exportedVariable) renamed (exports.exportedVariable)

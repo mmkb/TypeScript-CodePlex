@@ -1,0 +1,14 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedEnumInLexicalModule.ts ===
+module LexicalModule {
+>LexicalModule : LexicalModule
+
+  export enum exportedEnum {
+>exportedEnum : exportedEnum
+
+    one,
+>one : exportedEnum
+
+    two
+>two : exportedEnum
+  }
+}

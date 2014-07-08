@@ -1,0 +1,18 @@
+
+EmittedFile: (sourceMapScopeValidationRenameExportedClassInAmd.js) sourceFile: (sourceMapScopeValidationRenameExportedClassInAmd.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (2, 5) source (1, 1)
+Emitted (3, 9) source (1, 1) name (exportedClass)
+Emitted (4, 9) source (1, 29) name (exportedClass.constructor)
+Emitted (4, 10) source (1, 30) name (exportedClass.constructor)
+Emitted (5, 1) source (1, 30) name (exportedClass)
+Emitted (5, 9) source (1, 29) name (exportedClass)
+Emitted (5, 30) source (1, 30) name (exportedClass)
+Emitted (6, 5) source (1, 29) name (exportedClass)
+Emitted (6, 6) source (1, 30) name (exportedClass)
+Emitted (6, 10) source (1, 30)
+Emitted (7, 5) source (1, 1)
+Emitted (7, 43) source (1, 30)
+Emitted (8, 4) source (1, 30)
+Local (1,40:8,2) name (exportedClass) renamed (exports.exportedClass)

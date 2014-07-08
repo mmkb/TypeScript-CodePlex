@@ -484,3 +484,22 @@ Emitted (180, 5) source (108, 1) name (TopLevelModule2)
 Emitted (180, 6) source (108, 2) name (TopLevelModule2)
 Emitted (180, 51) source (108, 2)
 Emitted (181, 4) source (110, 1)
+Local (1,40:181,2) name (TopLevelModule1) renamed (exports.TopLevelModule1)
+Local (2,15:164,6) name (TopLevelModule1) restored
+Local (2,15:164,6) name (SubModule1) renamed (TopLevelModule1.SubModule1)
+Local (2,15:164,6) name (SubModule2) renamed (TopLevelModule1.SubModule2)
+Local (3,19:112,10) name (SubModule1) restored
+Local (3,19:112,10) name (SubSubModule1) renamed (SubModule1.SubSubModule1)
+Local (4,23:91,14) name (SubSubModule1) restored
+Local (4,23:91,14) name (ClassA) renamed (SubSubModule1.ClassA)
+Local (4,23:91,14) name (ClassB) renamed (SubSubModule1.ClassB)
+Local (115,19:144,10) name (SubModule2) restored
+Local (115,19:144,10) name (SubSubModule2) renamed (SubModule2.SubSubModule2)
+Local (116,23:142,14) name (SubSubModule2) restored
+Local (116,23:142,14) name (ClassA) renamed (SubSubModule2.ClassA)
+Local (116,23:142,14) name (ClassB) renamed (SubSubModule2.ClassB)
+Local (116,23:142,14) name (ClassC) renamed (SubSubModule2.ClassC)
+Local (156,19:163,10) name (ClassA) renamed (NotExportedModule.ClassA)
+Local (168,15:180,6) name (SubModule3) renamed (TopLevelModule2.SubModule3)
+Local (169,19:178,10) name (SubModule3) restored
+Local (169,19:178,10) name (ClassA) renamed (SubModule3.ClassA)

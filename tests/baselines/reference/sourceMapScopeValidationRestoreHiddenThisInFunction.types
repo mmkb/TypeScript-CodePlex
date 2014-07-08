@@ -1,0 +1,15 @@
+=== tests/cases/compiler/sourceMapScopeValidationRestoreHiddenThisInFunction.ts ===
+var arrowFunctionWithThis = () => this;
+>arrowFunctionWithThis : () => any
+>() => this : () => any
+>this : any
+
+function functionDeclarationWithRestoredThis() {
+>functionDeclarationWithRestoredThis : typeof functionDeclarationWithRestoredThis
+
+  this.a = 1;
+>this.a = 1 : number
+>this.a : any
+>this : any
+>a : any
+}

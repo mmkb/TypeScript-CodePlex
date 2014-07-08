@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedClassInAmd.ts ===
+export class exportedClass {}
+>exportedClass : exportedClass
+

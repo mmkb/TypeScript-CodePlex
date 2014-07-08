@@ -1,0 +1,13 @@
+
+EmittedFile: (sourceMapScopeValidationRenameExportedFunctionInAmd.js) sourceFile: (sourceMapScopeValidationRenameExportedFunctionInAmd.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (2, 5) source (1, 1)
+Emitted (2, 14) source (1, 17)
+Emitted (2, 30) source (1, 33)
+Emitted (3, 5) source (1, 37) name (exportedFunction)
+Emitted (3, 6) source (1, 38) name (exportedFunction)
+Emitted (4, 5) source (1, 1)
+Emitted (4, 49) source (1, 38)
+Emitted (5, 4) source (1, 38)
+Local (1,40:5,2) name (exportedFunction) renamed (exports.exportedFunction)

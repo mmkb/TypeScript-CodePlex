@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedVariableInAmd.ts ===
+export var exportedVariable = 1;
+>exportedVariable : number
+

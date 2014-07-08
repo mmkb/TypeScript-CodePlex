@@ -30,3 +30,5 @@ Emitted (9, 20) source (4, 2) name (Greeter)
 Emitted (10, 1) source (4, 1) name (Greeter)
 Emitted (10, 2) source (4, 2) name (Greeter)
 Emitted (10, 6) source (4, 2)
+Local (2,21:8,6) name (this) renamed (_this)
+Local (2,21:8,6) name (_this) hidden

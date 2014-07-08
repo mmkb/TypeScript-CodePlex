@@ -1,0 +1,20 @@
+=== tests/cases/compiler/file1.ts ===
+module Merged {
+>Merged : Merged
+
+  export function functionFromFile1() {}
+>functionFromFile1 : typeof functionFromFile1
+}
+=== tests/cases/compiler/file2.ts ===
+module Merged {
+>Merged : Merged
+
+  export function functionFromFile2() {
+>functionFromFile2 : typeof functionFromFile2
+
+    functionFromFile1();
+>functionFromFile1() : void
+>functionFromFile1 : typeof functionFromFile1
+  }
+}
+

@@ -1230,7 +1230,7 @@ module TypeScript.Services {
             }
 
             // Get the completions
-            var entries = new TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>();
+            var entries = new TypeScript.IdentifierNameHashTable<CachedCompletionEntryDetails>();
 
             // Right of dot member completion list
             if (isRightOfDot) {
@@ -1307,7 +1307,7 @@ module TypeScript.Services {
             return completions;
         }
 
-        private getCompletionEntriesFromSymbols(symbolInfo: TypeScript.PullVisibleSymbolsInfo, result: TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>): void {
+        private getCompletionEntriesFromSymbols(symbolInfo: TypeScript.PullVisibleSymbolsInfo, result: TypeScript.IdentifierNameHashTable<CachedCompletionEntryDetails>): void {
             for (var i = 0, n = symbolInfo.symbols.length; i < n; i++) {
                 var symbol = symbolInfo.symbols[i];
 
@@ -1343,7 +1343,7 @@ module TypeScript.Services {
             }
         }
 
-        private getCompletionEntriesFromDecls(decls: TypeScript.PullDecl[], result: TypeScript.IdentiferNameHashTable<CachedCompletionEntryDetails>): void {
+        private getCompletionEntriesFromDecls(decls: TypeScript.PullDecl[], result: TypeScript.IdentifierNameHashTable<CachedCompletionEntryDetails>): void {
             for (var i = 0, n = decls ? decls.length : 0; i < n; i++) {
                 var decl = decls[i];
 
@@ -1404,7 +1404,7 @@ module TypeScript.Services {
             };
         }
 
-        private getCompletionEntriesForKeywords(keywords: ResolvedCompletionEntry[], result: TypeScript.IdentiferNameHashTable<CompletionEntryDetails>): void {
+        private getCompletionEntriesForKeywords(keywords: ResolvedCompletionEntry[], result: TypeScript.IdentifierNameHashTable<CompletionEntryDetails>): void {
             for (var i = 0, n = keywords.length; i < n; i++) {
                 var keyword = keywords[i];
                 result.addOrUpdate(keyword.name, keyword);

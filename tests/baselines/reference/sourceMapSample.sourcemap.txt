@@ -188,3 +188,6 @@ Emitted (42, 23) source (35, 2) name (Foo)
 Emitted (43, 1) source (35, 1) name (Foo)
 Emitted (43, 2) source (35, 2) name (Foo)
 Emitted (43, 23) source (35, 2)
+Local (2,11:43,2) name (Bar) renamed (Foo.Bar)
+Local (3,15:41,6) name (Bar) restored
+Local (23,22:35,10) name (_i) hidden

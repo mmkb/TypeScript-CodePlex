@@ -80,3 +80,4 @@ Emitted (27, 20) source (18, 2) name (Greeter)
 Emitted (28, 1) source (18, 1) name (Greeter)
 Emitted (28, 2) source (18, 2) name (Greeter)
 Emitted (28, 6) source (18, 2)
+Local (2,21:9,6) name (_i) hidden

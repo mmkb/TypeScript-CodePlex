@@ -71,6 +71,10 @@ Emitted (12, 2) source (9, 2) name (m2_f1)
 Emitted (13, 1) source (7, 1)
 Emitted (13, 23) source (9, 2)
 Emitted (14, 1) source (9, 2)
+Local (1,1:14,1) name (m2_a1) renamed (exports.m2_a1)
+Local (1,1:14,1) name (m2_c1) renamed (exports.m2_c1)
+Local (1,1:14,1) name (m2_instance1) renamed (exports.m2_instance1)
+Local (1,1:14,1) name (m2_f1) renamed (exports.m2_f1)
 
 EmittedFile: (test.js) sourceFile: (../../test.ts)
 -------------------------------------------------------------------

@@ -1,0 +1,27 @@
+=== tests/cases/compiler/consumer.ts ===
+import e = require('./exporter');
+>e : e
+
+var importedVariable = e.w.exportedVariable;
+>importedVariable : number
+>e.w.exportedVariable : number
+>e.w : e.w
+>e : typeof e
+>w : e.w
+>exportedVariable : number
+
+=== tests/cases/compiler/w1.ts ===
+
+export var exportedVariable = 1;
+>exportedVariable : number
+
+=== tests/cases/compiler/exporter.ts ===
+export import w = require('./w1');
+>w : w
+
+var importedVariable = w.exportedVariable;
+>importedVariable : number
+>w.exportedVariable : number
+>w : typeof w
+>exportedVariable : number
+

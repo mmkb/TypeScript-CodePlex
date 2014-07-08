@@ -1,0 +1,10 @@
+
+EmittedFile: (sourceMapScopeValidationExportsRequiresHiddenInNode.js) sourceFile: (sourceMapScopeValidationExportsRequiresHiddenInNode.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (1, 9) source (1, 12)
+Emitted (1, 10) source (1, 13)
+Emitted (1, 13) source (1, 16)
+Emitted (1, 14) source (1, 17)
+Emitted (2, 1) source (2, 1)
+Local (1,1:2,1) name (a) renamed (exports.a)

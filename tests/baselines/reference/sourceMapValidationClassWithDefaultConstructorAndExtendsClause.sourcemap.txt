@@ -39,3 +39,5 @@ Emitted (21, 2) source (7, 2) name (Greeter)
 Emitted (21, 4) source (4, 23)
 Emitted (21, 19) source (4, 38)
 Emitted (21, 21) source (7, 2)
+Local (1,1:22,1) name (__extends) hidden
+Local (13,25:21,2) name (_super) hidden

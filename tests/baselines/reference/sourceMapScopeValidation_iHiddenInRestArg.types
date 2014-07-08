@@ -1,0 +1,5 @@
+=== tests/cases/compiler/sourceMapScopeValidation_iHiddenInRestArg.ts ===
+function functionWithRest(...args: any[]) {
+>functionWithRest : typeof functionWithRest
+>args : any[]
+}

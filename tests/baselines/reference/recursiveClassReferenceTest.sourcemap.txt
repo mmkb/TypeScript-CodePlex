@@ -272,3 +272,29 @@ Emitted (118, 30) source (100, 2) name (Sample)
 Emitted (119, 1) source (100, 1) name (Sample)
 Emitted (119, 2) source (100, 2) name (Sample)
 Emitted (119, 29) source (100, 2)
+Local (1,1:120,1) name (__extends) hidden
+Local (11,11:34,2) name (Actions) renamed (Sample.Actions)
+Local (12,15:32,6) name (Actions) restored
+Local (12,15:32,6) name (Thing) renamed (Actions.Thing)
+Local (13,19:30,10) name (Thing) renamed (_Thing)
+Local (13,19:30,10) name (_Thing) hidden
+Local (13,19:30,10) name (Find) renamed (_Thing.Find)
+Local (14,23:28,14) name (Find) restored
+Local (14,23:28,14) name (StartFindAction) renamed (Find.StartFindAction)
+Local (22,62:24,22) name (Thing) restored
+Local (37,11:66,2) name (Thing) renamed (Sample.Thing)
+Local (38,15:64,6) name (Thing) restored
+Local (38,15:64,6) name (Widgets) renamed (Thing.Widgets)
+Local (39,19:62,10) name (Widgets) restored
+Local (39,19:62,10) name (FindWidget) renamed (Widgets.FindWidget)
+Local (40,40:60,14) name (FindWidget) restored
+Local (78,11:119,2) name (Thing) renamed (Sample.Thing)
+Local (79,15:117,6) name (Thing) restored
+Local (79,15:117,6) name (Languages) renamed (Thing.Languages)
+Local (80,19:115,10) name (Languages) restored
+Local (80,19:115,10) name (PlainText) renamed (Languages.PlainText)
+Local (81,23:113,14) name (PlainText) restored
+Local (81,23:113,14) name (State) renamed (PlainText.State)
+Local (81,23:113,14) name (Mode) renamed (PlainText.Mode)
+Local (82,39:98,18) name (State) restored
+Local (101,38:111,18) name (_super) hidden

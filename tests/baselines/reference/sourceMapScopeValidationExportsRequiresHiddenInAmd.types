@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationExportsRequiresHiddenInAmd.ts ===
+export var a = 1;
+>a : number
+

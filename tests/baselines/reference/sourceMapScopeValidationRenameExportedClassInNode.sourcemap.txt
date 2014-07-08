@@ -1,0 +1,17 @@
+
+EmittedFile: (sourceMapScopeValidationRenameExportedClassInNode.js) sourceFile: (sourceMapScopeValidationRenameExportedClassInNode.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (2, 5) source (1, 1) name (exportedClass)
+Emitted (3, 5) source (1, 29) name (exportedClass.constructor)
+Emitted (3, 6) source (1, 30) name (exportedClass.constructor)
+Emitted (4, 1) source (1, 30) name (exportedClass)
+Emitted (4, 5) source (1, 29) name (exportedClass)
+Emitted (4, 26) source (1, 30) name (exportedClass)
+Emitted (5, 1) source (1, 29) name (exportedClass)
+Emitted (5, 2) source (1, 30) name (exportedClass)
+Emitted (5, 6) source (1, 30)
+Emitted (6, 1) source (1, 1)
+Emitted (6, 39) source (1, 30)
+Emitted (7, 1) source (1, 30)
+Local (1,1:7,1) name (exportedClass) renamed (exports.exportedClass)

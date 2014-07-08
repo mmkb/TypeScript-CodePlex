@@ -66,7 +66,8 @@ class HarnessBatch implements TypeScript.IReferenceResolverHost {
     private compile(
         writeEmitFile: (path: string, contents: string, writeByteOrderMark: boolean) => void,
         writeDeclareFile: (path: string, contents: string, writeByteOrderMark: boolean) => void,
-        sourceMapEmitterCallback: Harness.SourceMapEmitterCallback) {
+        sourceMapEmitterCallback: Harness.SourceMapEmitterCallback,
+        sourceMapLocalCallback: Harness.SourceMapLocalCallback) {
 
         var compiler: TypeScript.TypeScriptCompiler;
 
@@ -104,8 +105,16 @@ class HarnessBatch implements TypeScript.IReferenceResolverHost {
                 var write = o.fileType === TypeScript.OutputFileType.Declaration ? writeDeclareFile : writeEmitFile;
                 write(o.name, o.text, o.writeByteOrderMark);
 
-                o.sourceMapEntries.forEach(s => sourceMapEmitterCallback(
-                    s.emittedFile, s.emittedLine, s.emittedColumn, s.sourceFile, s.sourceLine, s.sourceColumn, s.sourceName));
+                if (o.sourceMapOutput) {
+                    o.sourceMapOutput.sourceMapEntries.forEach(s => sourceMapEmitterCallback(
+                        s.emittedFile, s.emittedLine, s.emittedColumn, s.sourceFile, s.sourceLine, s.sourceColumn, s.sourceName));
+
+                    o.sourceMapOutput.sourceMapRootScopes.forEach(scope => {
+                        scope.forEachLocalFlat((scope, from, to) => {
+                            sourceMapLocalCallback(scope.startLine, scope.startColumn, scope.endLine, scope.endColumn, from, to);
+                        });
+                    });
+                }
             });
         }
 
@@ -129,7 +138,8 @@ class HarnessBatch implements TypeScript.IReferenceResolverHost {
         files: string[],
         writeEmitFiles: (path: string, contents: string, writeByteOrderMark: boolean) => void,
         writeDeclareFile: (path: string, contents: string, writeByteOrderMark: boolean) => void,
-        sourceMapEmitterCallback: Harness.SourceMapEmitterCallback) {
+        sourceMapEmitterCallback: Harness.SourceMapEmitterCallback,
+        sourceMapLocalCallback: Harness.SourceMapLocalCallback) {
 
         TypeScript.CompilerDiagnostics.diagnosticWriter = { Alert: function (s: string) { this.host.printLine(s); } };
 
@@ -140,7 +150,7 @@ class HarnessBatch implements TypeScript.IReferenceResolverHost {
         // resolve file dependencies
         this.resolve();
 
-        this.compile(writeEmitFiles, writeDeclareFile, sourceMapEmitterCallback);
+        this.compile(writeEmitFiles, writeDeclareFile, sourceMapEmitterCallback, sourceMapLocalCallback);
     }
 
     public getResolvedFilePaths(): string[] {
@@ -453,6 +463,22 @@ class ProjectRunner extends RunnerBase {
                     Harness.Assert.noDiff(sourceMapContents, TypeScript.IO.readFile(referenceFileName, /*codepage:*/ null).contents);
                 }
 
+                var sourceMapLocalCallback = (emittedStartLine: number, emittedStartColumn: number, emittedEndLine: number, emittedEndColumn: number, emittedFromIdentifier: string, emittedToExpression: string): void => {
+                    sourceMapRecord.Write("Local (" + emittedStartLine + "," + emittedStartColumn + ":" + emittedEndLine + "," + emittedEndColumn + ") name (" + emittedFromIdentifier + ") ");
+
+                    if (emittedToExpression === TypeScript.SourceMapScope.HIDDEN_LOCAL) {
+                        sourceMapRecord.Write("hidden");
+                    }
+                    else if (emittedToExpression === emittedFromIdentifier) {
+                        sourceMapRecord.Write("restored");
+                    }
+                    else {
+                        sourceMapRecord.Write("renamed (" + emittedToExpression + ")");
+                    }
+
+                    sourceMapRecord.WriteLine("");
+                };
+
                 /********************************************************
                                      NODE CODEGEN
                 *********************************************************/
@@ -475,7 +501,7 @@ class ProjectRunner extends RunnerBase {
                     var batch = new HarnessBatch(getDeclareFiles, generateMapFiles, outputOption, outDirOption, mapRoot, sourceRoot, compilationSettings);
                     prevSourceFile = "";
                     sourceMapRecord = batch.sourcemapRecord;
-                    batch.harnessCompile(inputFiles, writeEmitFile, writeDeclareFile, sourceMapEmitterCallback);
+                    batch.harnessCompile(inputFiles, writeEmitFile, writeDeclareFile, sourceMapEmitterCallback, sourceMapLocalCallback);
 
                     it("collects the right files", function () {
                         var resolvedFiles = batch.getResolvedFilePaths();
@@ -554,7 +580,7 @@ class ProjectRunner extends RunnerBase {
                     var batch = new HarnessBatch(getDeclareFiles, generateMapFiles, outputOption, outDirOption, mapRoot, sourceRoot, compilationSettings);
                     prevSourceFile = "";
                     sourceMapRecord = batch.sourcemapRecord;
-                    batch.harnessCompile(inputFiles, writeEmitFile, writeDeclareFile, sourceMapEmitterCallback);
+                    batch.harnessCompile(inputFiles, writeEmitFile, writeDeclareFile, sourceMapEmitterCallback, sourceMapLocalCallback);
 
                     it("collects the right files", function () {
                         var resolvedFiles = batch.getResolvedFilePaths();

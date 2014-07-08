@@ -1,0 +1,22 @@
+
+EmittedFile: (sourceMapScopeValidationRenameModuleWithConflictingChild.js) sourceFile: (sourceMapScopeValidationRenameModuleWithConflictingChild.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (1, 5) source (1, 8)
+Emitted (1, 20) source (1, 23)
+Emitted (2, 1) source (4, 2)
+Emitted (2, 2) source (1, 1)
+Emitted (2, 12) source (1, 8)
+Emitted (2, 28) source (1, 23)
+Emitted (3, 5) source (2, 3) name (conflictingName)
+Emitted (3, 14) source (2, 19) name (conflictingName)
+Emitted (3, 29) source (2, 34) name (conflictingName)
+Emitted (4, 5) source (3, 3) name (conflictingName.conflictingName)
+Emitted (4, 6) source (3, 4) name (conflictingName.conflictingName)
+Emitted (5, 5) source (2, 3) name (conflictingName)
+Emitted (5, 56) source (3, 4) name (conflictingName)
+Emitted (6, 1) source (4, 1) name (conflictingName)
+Emitted (6, 2) source (4, 2) name (conflictingName)
+Emitted (6, 47) source (4, 2)
+Local (2,11:6,2) name (conflictingName) renamed (_conflictingName.conflictingName)
+Local (2,11:6,2) name (_conflictingName) hidden

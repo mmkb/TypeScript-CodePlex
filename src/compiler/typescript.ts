@@ -103,7 +103,7 @@ module TypeScript {
             public writeByteOrderMark: boolean,
             public text: string,
             public fileType: OutputFileType,
-            public sourceMapEntries: SourceMapEntry[] = []) {
+            public sourceMapOutput: SourceMapperOutput = null) {
         }
     }
 

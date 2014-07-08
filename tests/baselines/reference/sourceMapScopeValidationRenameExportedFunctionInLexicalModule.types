@@ -1,0 +1,7 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedFunctionInLexicalModule.ts ===
+module LexicalModule {
+>LexicalModule : LexicalModule
+
+  export function exportedFunction() {}
+>exportedFunction : typeof exportedFunction
+}

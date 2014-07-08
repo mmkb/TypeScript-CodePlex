@@ -30,6 +30,13 @@ module TypeScript {
         public childMappings: SourceMapping[] = [];
     }
 
+    export class SourceMapperOutput {
+        constructor(
+            public sourceMapEntries: SourceMapEntry[],
+            public sourceMapRootScopes: SourceMapScope[]) {
+        }
+    }
+
     export class SourceMapEntry {
         constructor(
             public emittedFile: string,
@@ -47,7 +54,7 @@ module TypeScript {
         }
     }
 
-    interface SourceMap {
+    export interface SourceMap {
         version: number;
         file: string;
         sourceRoot?: string;
@@ -61,6 +68,150 @@ module TypeScript {
 
         // extensions for compiler flags
         x_ms_compilerFlags?: string;
+
+        // extensions for scopes and locals
+        // a VLQ encoded string of scopes in the form VLQ([lineOffset, columnOffset]) '>' or '<', 
+        // where '>' denotes entering a scope and '<' denotes exiting a scope
+        x_ms_scopes?: string;
+
+        // a VLQ encoded string of local mappings seperated by ';' for each scope and ',' for each 
+        // local, in the form VLQ([generatedNameOffset, sourceNameOffset?])
+        x_ms_locals?: string;
+    }
+
+    /**
+     * Contains information about a scope
+     */
+    export class SourceMapScope {
+
+        // Represents the "index" for a hidden local.
+        static HIDDEN_LOCAL = "#hidden";
+
+        // Any nested scopes that have a rename
+        public nested: SourceMapScope[] = [];
+
+        private _locals: IIndexable<string> = typeof Object.create === "function" ? Object.create(null) : {};
+
+        constructor(
+            public parent: SourceMapScope,
+
+            // The line number for the start of the scope
+            public startLine: number,
+
+            // The column number for the start of the scope
+            public startColumn: number,
+
+            // The line number for the end of the scope
+            public endLine: number = 0,
+            
+            // The column number for the end of the scope
+            public endColumn: number = 0) {
+
+            if (parent) {
+                parent.nested.push(this);
+            }
+        }
+
+        /**
+         * Hides a named local
+         * @param name The name for the local to hide
+         */
+        public hideLocal(name: string): void {            
+            this.setLocal(name, SourceMapScope.HIDDEN_LOCAL);
+        }
+
+        /**
+         * Tracks an identifier with the provided name 
+         * @param name The name for the local
+         */
+        public trackLocal(name: string): void {
+            this.setLocal(name, name);
+        }
+
+        /**
+         * Renames/aliases an identifier with the provided name index from the source to the name index for the generated output
+         * @param from The name for the local to rename
+         * @param to The name or expression to use for the renamed local
+         */
+        public renameLocal(from: string, to: string): void {
+            this.setLocal(from, to);
+        }
+
+        /**
+         * Executes the supplied callback for each local defined in this current scope
+         * @param callback The callback to execute
+         * @remarks
+         * The callback is only executed if the following conditions are met:
+         * - If there is no mapping in an ancestor scope and we're tracking or restoring the local, don't emit
+         * - If the name or expression the local is mapped to is the same as the mapping in an ancestor scope, don't emit
+         * - If the name is being hidden, but was renamed in an ancestor scope, don't emit
+         * - Otherwise, emit
+         */
+        public forEachLocal(callback: (from: string, to: string) => void): void {
+            for (var key in this._locals) {
+                var to = this._locals[key];
+                if (to) {
+                    var from = key.substr(1);
+                    var previous = this.parent ? this.parent.getLocal(from) : undefined;
+
+                    // if there's no previous value and we're tracking/restoring, don't emit
+                    if (previous == null && from == to) {
+                        continue;
+                    }
+
+                    // if we haven't changed, don't emit
+                    if (to == previous) {
+                        continue;
+                    }
+
+                    // if we're hiding a name, but its a rename in a parent scope, don't emit
+                    if (previous != null && from != previous && to == SourceMapScope.HIDDEN_LOCAL) {
+                        continue;
+                    }
+
+                    // emit the local
+                    callback(from, to);
+                }
+            }
+        }
+
+        /**
+         * Executes the supplied callback for each local defined in this current scope and all nested scopes
+         * @param callback The callback to execute
+         * @remarks
+         * The callback is only executed if the following conditions are met:
+         * - If there is no mapping in an ancestor scope and we're tracking or restoring the local, don't emit
+         * - If the name or expression the local is mapped to is the same as the mapping in an ancestor scope, don't emit
+         * - If the name is being hidden, but was renamed in an ancestor scope, don't emit
+         * - Otherwise, emit
+         */
+        public forEachLocalFlat(callback: (scope: SourceMapScope, from: string, to: string) => void): void {
+            this.forEachLocal((from, to) => callback(this, from, to));
+            this.nested.forEach(nested => nested.forEachLocalFlat(callback));
+        }
+        
+        /**
+         * Gets a mapping from one local to another local (or expression) defined in this scope or any ancestor scope
+         * @param name The name of the local
+         * @returns The mapped name or expression if one was defined; otherwise, undefined.
+         */
+        private getLocal(name: string): string {
+            for (var ancestor = this; ancestor != null; ancestor = ancestor.parent) {
+                var value = ancestor._locals["#" + name];
+                if (value != null) {
+                    return value;
+                }
+            }
+        }
+
+        /**
+         * Sets a mapping from one local to another local (or expression)
+         * @param from The name from which to map
+         * @param to The name to which to map
+         */
+        private setLocal(from: string, to: string): void {
+            this._locals["#" + from] = to;
+        }
     }
 
     export class SourceMapper {
@@ -74,7 +225,13 @@ module TypeScript {
         private sourceRoot: string;
         private compilerFlags: string;
 
+        // scoping information
+        private topScope: SourceMapScope;
+        private currentScope: SourceMapScope;
+        private sourceMapRootScopes: SourceMapScope[] = [];
+
         public names: string[] = [];
+        private nameIndices: IdentifierNameHashTable<number> = new IdentifierNameHashTable<number>();
 
         private mappingLevel: IASTSpan[] = [];
 
@@ -109,8 +266,9 @@ module TypeScript {
 
         public getOutputFile(): OutputFile {
             var result = this.sourceMapOut.getOutputFile();
-            result.sourceMapEntries = this.sourceMapEntries;
-
+            result.sourceMapOutput = new SourceMapperOutput(
+                this.sourceMapEntries,
+                this.sourceMapRootScopes);
             return result;
         }
         
@@ -126,6 +284,98 @@ module TypeScript {
             Debug.assert(
                 ast === expectedAst,
                 "Provided ast is not the expected AST, Expected: " + expectedAstInfo + " Given: " + astInfo)
+        }
+
+        /**
+         * Looks up the name associated with the provided index
+         * @param nameIndex the index of the name in the source map's names array
+         * @returns The name for the index, or undefined
+         */
+        public lookupName(nameIndex: number): string {
+            return this.names[nameIndex];
+        }
+
+        /**
+         * Looks up the index associated with the provided name
+         * @param name the name to look up
+         * @returns The index of the name
+         */
+        public lookupNameIndex(name: string): number {
+            var nameIndex = this.nameIndices.lookup(name);
+            if (nameIndex !== null) {
+                return nameIndex;
+            }
+
+            return -1;
+        }
+
+        /**
+         * Adds a name to the names collection, or returns the index of the name if already present
+         * @param name The name to add
+         * @returns The index of the name
+         */
+        public getOrAddName(name: string): number {
+            var nameIndex = this.lookupNameIndex(name);
+            if (nameIndex === -1) {
+                nameIndex = this.names.length;
+                this.names.push(name);
+                this.nameIndices.add(name, nameIndex);
+            }
+
+            return nameIndex;
+        }
+
+        /**
+         * Enter a new scope at the provided position
+         * @param startLine the line number of the start of this scope
+         * @param startColumn the column number of the start of this scope
+         */
+        public pushScope(startLine: number, startColumn: number): void {
+            this.currentScope = new SourceMapScope(this.currentScope, startLine, startColumn);
+        }
+
+        /**
+         * Exit and save the current scope at the provided position
+         * @param endLine the line number of the end of this scope
+         * @param endColumn the column number of the end of this scope
+         */
+        public popScope(endLine: number, endColumn: number): void {
+            var scope = this.currentScope;
+            this.currentScope = scope.parent;
+            scope.endLine = endLine;
+            scope.endColumn = endColumn;
+            if (!this.currentScope) {
+                this.topScope = scope;
+            }
+        }
+        
+        /**
+         * Tracks a local that is the same in both the source and generated files
+         * @param name The name of the identifier in the source file
+         */
+        public trackLocal(name: string): void {
+            if (!name) throw Errors.argumentNull("name");
+            this.currentScope.trackLocal(name);
+        }
+
+        /**
+         * Hides a local identifier in the current scope
+         * @param name The name of the identifier in the generated output
+         */
+        public hideLocal(name: string): void {
+            if (!name) throw Errors.argumentNull("name");
+            this.currentScope.hideLocal(name);
+        }
+
+        /**
+         * Renames (or restores the name) of a local identifier in the current scope
+         * @param fromName The name of the identifier in the source file
+         * @param toName The name of the identifier in the generated output
+         */
+        public renameLocal(from: string, to: string): void {
+            if (!from) throw Errors.argumentNull("from");
+            if (!to) throw Errors.argumentNull("to");
+            this.currentScope.renameLocal(from, to);
         }
 
         public setNewSourceFile(document: Document, emitOptions: EmitOptions) {
@@ -302,6 +552,7 @@ module TypeScript {
         private addExtensions(sourceMap: SourceMap): void {
             this.addMediaTypeExtension(sourceMap);
             this.addCompilerFlagsExtension(sourceMap);
+            this.addScopesExtension(sourceMap);
         }
 
         private addMediaTypeExtension(sourceMap: SourceMap): void {
@@ -366,6 +617,158 @@ module TypeScript {
         private addCompilerFlagsExtension(sourceMap: SourceMap): void {
             if (this.compilerFlags) {
                 sourceMap.x_ms_compilerFlags = this.compilerFlags;
+            }
+        }
+
+        private addScopesExtension(sourceMap: SourceMap): void {
+            if (!this.topScope) {
+                return;
+            }
+
+            // x_ms_scopes:
+            //
+            //   The "x_ms_scopes" property consists of a string that contains the line 
+            //   and column offsets of the beginning and end of any lexical scope that contains
+            //   renamed or hidden locals.
+            // 
+            //   The format consists of a Base64VLQ encoded tuple of <line offset><column offset> 
+            //   followed by either a single greater-than ('>') character that indicates the start 
+            //   of a new nested scope, or a single less-than ('<') character that indicates 
+            //   the end of the current nested scope.
+            //
+            //   As each nested scope is defined it is assigned an ordinal index, starting from 0.
+            //
+            //   Example:
+            //
+            //     ...
+            //     "x_ms_scopes": "AA>CA<"
+            //     ...
+            //
+            //   This indicates a new nested scope with index 0 from 0,0 to 1,0.
+            //
+            // x_ms_locals:
+            //
+            //   This string consists of a series of Base64VLQ encoded records delimited by a 
+            //   semi-colon (';') when the scope index should be incremented, and a comma (',') when 
+            //   a new local record starts for the same scope index.
+            //
+            //   Each record consists of one or two fields encoded using the Base64 VLQ format that 
+            //   contain. Offsets into the "names" array, starting from 0.
+            //
+            //   A record that contains a single field indicates a local that should be hidden
+            //   from a debugger in watches and locals.
+            //
+            //   A record that contains two fields indicates a local within the current scope in the 
+            //   source file and the identifier or expression that should be used in its place within
+            //   that scope for watches and locals.
+            //
+            //   Whether the record contains one or two fields, both offsets apply to the current
+            //   index into the "names" array.
+            //
+            //   Example:
+            //
+            //     ...
+            //     "names": ["__extends", "_super", "this", "_this"],
+            //     "x_ms_scopes": "AA>CA>CA>CA<8BK<CA",
+            //     "x_ms_locals": "A,C,C;AC,A;CA"
+            //     ...
+            //
+            //   This indicates:
+            //     - "__extends" should be hidden in scope 0. 
+            //     - "_super" should be hidden in scope 0.
+            //     - "this" should use "_this" in scope 1.
+            //     - "_this" should be hidden in scope 1.
+            //     - "this" source should use "this" in scope 2 (restored).
+
+            var prevLine = 0;
+            var prevColumn = 0;
+            var prevNameIndex = 0;
+            var scopesBuilder: string[] = [];
+            var localsBuilder: string[] = [];
+            var needsSemicolon = false;
+            var emitScope = false;
+            var enclosingScope: SourceMapScope;
+            var recordScope = (scope: SourceMapScope) => {
+                var emitScope = false;
+                var savedEnclosingScope = enclosingScope;
+                scope.forEachLocal((from, to) => {
+                    if (!emitScope) {
+                        emitScope = true;
+
+                        enclosingScope = new SourceMapScope(
+                            enclosingScope,
+                            scope.startLine + 1,
+                            scope.startColumn + 1,
+                            scope.endLine + 1,
+                            scope.endColumn + 1);
+
+                        if (!savedEnclosingScope) {
+                            this.sourceMapRootScopes.push(enclosingScope);
+                        }
+
+                        var startLineOffset = scope.startLine - prevLine;
+                        var startColumnOffset = scope.startColumn - prevColumn;
+                        prevLine = scope.startLine;
+                        prevColumn = scope.startColumn;
+
+                        scopesBuilder.push(Base64VLQFormat.encode(startLineOffset));
+                        scopesBuilder.push(Base64VLQFormat.encode(startColumnOffset));
+                        scopesBuilder.push('>');
+
+                        if (needsSemicolon) {
+                            localsBuilder.push(";");
+                        }
+                        else {
+                            needsSemicolon = true;
+                        }
+                    }
+                    else {
+                        localsBuilder.push(",");
+                    }
+
+                    enclosingScope.renameLocal(from, to);
+
+                    var nameIndex = this.getOrAddName(from);
+                    localsBuilder.push(Base64VLQFormat.encode(nameIndex - prevNameIndex));
+                    prevNameIndex = nameIndex;
+
+                    if (to != SourceMapScope.HIDDEN_LOCAL) {
+                        nameIndex = this.getOrAddName(to);
+                        localsBuilder.push(Base64VLQFormat.encode(nameIndex - prevNameIndex));
+                        prevNameIndex = nameIndex;
+                    }
+                });
+
+                recordNestedScopes(scope.nested);
+
+                if (emitScope) {
+                    var endLineOffset = scope.endLine - prevLine;
+                    var endColumnOffset = scope.endColumn - prevColumn;
+                    prevLine = scope.endLine;
+                    prevColumn = scope.endColumn;
+
+                    scopesBuilder.push(Base64VLQFormat.encode(endLineOffset));
+                    scopesBuilder.push(Base64VLQFormat.encode(endColumnOffset));
+                    scopesBuilder.push('<');
+                }
+
+                enclosingScope = savedEnclosingScope;
+            };
+
+            var recordNestedScopes = (scopes: SourceMapScope[]) => {
+                for (var i = 0, l = scopes.length; i < l; i++) {
+                    var scope = scopes[i];
+                    recordScope(scope);
+                }
+            };
+
+            recordScope(this.topScope);
+
+            var scopes: string = scopesBuilder.join("");
+            var locals: string = localsBuilder.join("");
+            if (scopes || locals) {
+                sourceMap.x_ms_scopes = scopes;
+                sourceMap.x_ms_locals = locals;
             }
         }
     }

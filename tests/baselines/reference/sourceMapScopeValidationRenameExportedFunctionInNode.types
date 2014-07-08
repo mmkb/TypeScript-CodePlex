@@ -1,0 +1,4 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameExportedFunctionInNode.ts ===
+export function exportedFunction() {}
+>exportedFunction : typeof exportedFunction
+

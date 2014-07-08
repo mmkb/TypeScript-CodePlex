@@ -1,0 +1,17 @@
+
+EmittedFile: (sourceMapScopeValidationCaptureThisInFileScope.js) sourceFile: (sourceMapScopeValidationCaptureThisInFileScope.ts)
+-------------------------------------------------------------------
+Emitted (2, 1) source (1, 1)
+Emitted (2, 5) source (1, 5)
+Emitted (2, 26) source (1, 26)
+Emitted (2, 29) source (1, 29)
+Emitted (3, 12) source (1, 35)
+Emitted (3, 17) source (1, 39)
+Emitted (3, 18) source (1, 40)
+Emitted (3, 19) source (1, 41)
+Emitted (3, 22) source (1, 44)
+Emitted (3, 23) source (1, 45)
+Emitted (4, 1) source (1, 35)
+Emitted (4, 2) source (1, 45)
+Local (1,1:5,1) name (this) renamed (_this)
+Local (1,1:5,1) name (_this) hidden

@@ -1,0 +1,11 @@
+
+EmittedFile: (sourceMapScopeValidationExportsRequiresHiddenInAmd.js) sourceFile: (sourceMapScopeValidationExportsRequiresHiddenInAmd.ts)
+-------------------------------------------------------------------
+Emitted (1, 1) source (1, 1)
+Emitted (2, 5) source (1, 8)
+Emitted (2, 13) source (1, 12)
+Emitted (2, 14) source (1, 13)
+Emitted (2, 17) source (1, 16)
+Emitted (2, 18) source (1, 17)
+Emitted (3, 4) source (2, 1)
+Local (1,40:3,2) name (a) renamed (exports.a)

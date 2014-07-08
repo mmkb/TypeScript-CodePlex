@@ -226,6 +226,7 @@ module TypeScript {
         private declStack: PullDecl[] = [];
         private exportAssignment: ExportAssignment = null;
         private inWithBlock = false;
+        private thisIsCapturedInScope = false;
 
         public document: Document = null;
 
@@ -367,6 +368,7 @@ module TypeScript {
                 this.recordSourceMappingStart(importDeclAST);
                 if (usePropertyAssignmentInsteadOfVarDecl) {
                     this.writeToOutput(moduleNamePrefix);
+                    this.recordSourceMappingRenameLocal(importDeclAST.identifier.text(), moduleNamePrefix + importDeclAST.identifier.text());
                 }
                 else {
                     this.writeToOutput("var ");
@@ -399,6 +401,9 @@ module TypeScript {
 
         public createSourceMapper(document: Document, jsFileName: string, jsFile: TextWriter, sourceMapOut: TextWriter, resolvePath: (path: string) => string) {
             this.sourceMapper = new SourceMapper(jsFile, sourceMapOut, document, jsFileName, this.emitOptions, resolvePath);
+
+            // the top level scope starts at the top of the generated file
+            this.recordSourceMappingScopeStart();
         }
 
         public setSourceMapperNewSourceFile(document: Document) {
@@ -442,6 +447,9 @@ module TypeScript {
         }
 
         public writeCaptureThisStatement(ast: AST) {
+            this.recordSourceMappingRenameLocal("this", "_this");
+            this.recordSourceMappingHideLocal("_this");
+            this.thisIsCapturedInScope = true;
             this.emitIndent();
             this.writeToOutputWithSourceMapRecord(this.captureThisStmtString, ast);
             this.writeLineToOutput("");
@@ -661,7 +669,7 @@ module TypeScript {
                 this.recordSourceMappingStart(args);
                 this.writeToOutput("(");
                 if (callNode.expression.kind() === SyntaxKind.SuperKeyword && this.emitState.container === EmitContainer.Constructor) {
-                    this.writeToOutput("this");
+                    this.emitThis();
                     if (args && args.nonSeparatorCount() > 0) {
                         this.writeToOutput(", ");
                     }
@@ -804,6 +812,7 @@ module TypeScript {
 
         private emitRestParameterInitializer(parameters: IParameters): void {
             if (parameters.lastParameterIsRest()) {
+                this.recordSourceMappingHideLocal("_i");
                 var n = parameters.length;
                 var lastArg = parameters.astAt(n - 1);
                 var id = parameters.identifierAt(n - 1);
@@ -860,6 +869,7 @@ module TypeScript {
         public getModuleImportAndDependencyList(sourceUnit: SourceUnit) {
             var importList = "";
             var dependencyList = "";
+            var importNames: string[] = [];
 
             var importDecls = this.getImportDecls(this.document.fileName);
 
@@ -876,6 +886,7 @@ module TypeScript {
                             importList += ", ";
                         }
 
+                        importNames.push(importStatementDecl.name);
                         importList += importStatementDecl.name;
                         dependencyList += (<ExternalModuleReference>importStatementAST.moduleReference).stringLiteral.text();
                     }
@@ -889,6 +900,7 @@ module TypeScript {
             }
 
             return {
+                importNames: importNames,
                 importList: importList,
                 dependencyList: dependencyList
             };
@@ -915,6 +927,9 @@ module TypeScript {
             var svModuleName = this.moduleName;
             this.moduleName = moduleDecl.identifier.text();
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             var temp = this.setContainer(EmitContainer.Module);
             var isExported = hasFlag(pullDecl.flags, PullElementFlags.Exported);
 
@@ -923,6 +938,7 @@ module TypeScript {
                 this.writeToOutput("var ");
                 this.recordSourceMappingStart(moduleDecl.identifier);
                 this.writeToOutput(this.moduleName);
+                this.recordSourceMappingLocal(this.moduleName);
                 this.recordSourceMappingEnd(moduleDecl.identifier);
                 this.writeLineToOutput(";");
                 this.recordSourceMappingEnd(moduleDecl);
@@ -931,10 +947,13 @@ module TypeScript {
 
             this.writeToOutput("(");
             this.recordSourceMappingStart(moduleDecl);
-            this.writeToOutput("function (");
+            this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
+            this.writeToOutput("(");
             this.writeToOutputWithSourceMapRecord(this.moduleName, moduleDecl.identifier);
             this.writeLineToOutput(") {");
 
+            this.recordSourceMappingLocal(this.moduleName);
             this.recordSourceMappingNameStart(this.moduleName);
 
             this.indenter.increaseIndent();
@@ -947,26 +966,25 @@ module TypeScript {
             this.indenter.decreaseIndent();
             this.emitIndent();
 
+            this.writeToOutput("}");
+            this.recordSourceMappingNameEnd();
+            this.recordSourceMappingScopeEnd();
+
             var parentIsDynamic = temp === EmitContainer.DynamicModule;
             if (temp === EmitContainer.Prog && isExported) {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
                 this.writeToOutput(")(this." + this.moduleName + " || (this." + this.moduleName + " = {}));");
+                this.recordSourceMappingLocal(this.moduleName);
             }
             else if (isExported || temp === EmitContainer.Prog) {
                 var dotMod = svModuleName !== "" ? (parentIsDynamic ? "exports" : svModuleName) + "." : svModuleName;
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
                 this.writeToOutput(")(" + dotMod + this.moduleName + " || (" + dotMod + this.moduleName + " = {}));");
+                this.recordSourceMappingRenameLocal(this.moduleName, dotMod + this.moduleName);
             }
             else if (!isExported && temp !== EmitContainer.Prog) {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
                 this.writeToOutput(")(" + this.moduleName + " || (" + this.moduleName + " = {}));");
+                this.recordSourceMappingLocal(this.moduleName);
             }
             else {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
                 this.writeToOutput(")();");
             }
 
@@ -988,6 +1006,7 @@ module TypeScript {
 
             this.setContainer(temp);
             this.moduleName = svModuleName;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
 
             this.popDecl(pullDecl);
         }
@@ -1090,6 +1109,9 @@ module TypeScript {
 
             var svModuleName = this.moduleName;
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             if (moduleDecl.stringLiteral) {
                 this.moduleName = moduleDecl.stringLiteral.valueText();
                 if (isTSFile(this.moduleName)) {
@@ -1109,6 +1131,7 @@ module TypeScript {
                 this.recordSourceMappingStart(moduleDecl);
                 this.writeToOutput("var ");
                 this.recordSourceMappingStart(moduleName);
+                this.recordSourceMappingLocal(this.moduleName);
                 this.writeToOutput(this.moduleName);
                 this.recordSourceMappingEnd(moduleName);
                 this.writeLineToOutput(";");
@@ -1118,10 +1141,18 @@ module TypeScript {
 
             this.writeToOutput("(");
             this.recordSourceMappingStart(moduleDecl);
-            this.writeToOutput("function (");
+            this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
+            this.writeToOutput("(");
+
             // Use the name that doesnt conflict with its members, 
             // this.moduleName needs to be updated to make sure that export member declaration is emitted correctly
             this.moduleName = this.getModuleName(pullDecl);
+            this.recordSourceMappingRenameLocal(pullDecl.getDisplayName(), this.moduleName);
+            if (this.moduleName !== pullDecl.getDisplayName()) {
+                this.recordSourceMappingHideLocal(this.moduleName);
+            }
+
             this.writeToOutputWithSourceMapRecord(this.moduleName, moduleName);
             this.writeLineToOutput(") {");
 
@@ -1160,29 +1191,26 @@ module TypeScript {
             // epilogue
             var parentIsDynamic = temp === EmitContainer.DynamicModule;
             this.recordSourceMappingStart(moduleDecl.endingToken);
+            this.writeToOutput("}");
+
+            this.recordSourceMappingNameEnd();
+            this.recordSourceMappingEnd(moduleDecl.endingToken);
+            this.recordSourceMappingScopeEnd();
+
             if (temp === EmitContainer.Prog && isExported) {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
-                this.recordSourceMappingEnd(moduleDecl.endingToken);
                 this.writeToOutput(")(this." + this.moduleName + " || (this." + this.moduleName + " = {}));");
+                this.recordSourceMappingLocal(this.moduleName);
             }
             else if (isExported || temp === EmitContainer.Prog) {
                 var dotMod = svModuleName !== "" ? (parentIsDynamic ? "exports" : svModuleName) + "." : svModuleName;
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
-                this.recordSourceMappingEnd(moduleDecl.endingToken);
                 this.writeToOutput(")(" + dotMod + this.moduleName + " || (" + dotMod + this.moduleName + " = {}));");
+                this.recordSourceMappingRenameLocal(this.moduleName, dotMod + this.moduleName);
             }
             else if (!isExported && temp !== EmitContainer.Prog) {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
-                this.recordSourceMappingEnd(moduleDecl.endingToken);
                 this.writeToOutput(")(" + this.moduleName + " || (" + this.moduleName + " = {}));");
+                this.recordSourceMappingLocal(this.moduleName);
             }
             else {
-                this.writeToOutput("}");
-                this.recordSourceMappingNameEnd();
-                this.recordSourceMappingEnd(moduleDecl.endingToken);
                 this.writeToOutput(")();");
             }
 
@@ -1204,6 +1232,7 @@ module TypeScript {
 
             this.setContainer(temp);
             this.moduleName = svModuleName;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
 
             this.popDecl(pullDecl);
 
@@ -1228,6 +1257,10 @@ module TypeScript {
             this.writeToOutput('[');
             this.writeToOutput(quoted ? name : '"' + name + '"');
             this.writeToOutput(']');
+
+            if (!quoted) {
+                this.recordSourceMappingRenameLocal(name, this.moduleName + "." + name);
+            }
 
             if (varDecl.equalsValueClause) {
                 this.emit(varDecl.equalsValueClause);
@@ -1282,12 +1315,14 @@ module TypeScript {
 
             this.recordSourceMappingStart(arrowFunction);
             this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
             this.writeToOutput("(");
             this.emitFunctionParameters(parameters);
             this.writeToOutput(")");
 
             this.emitFunctionBodyStatements(funcName, arrowFunction, parameters, block, expression);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(arrowFunction);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -1306,6 +1341,9 @@ module TypeScript {
             }
             var temp = this.setContainer(EmitContainer.Constructor);
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             this.recordSourceMappingStart(funcDecl);
 
             var pullDecl = this.semanticInfoChain.getDeclForAST(funcDecl);
@@ -1314,8 +1352,10 @@ module TypeScript {
             this.emitComments(funcDecl, true);
 
             this.recordSourceMappingStart(funcDecl);
+            this.recordSourceMappingLocal(this.thisClassNode.identifier.text());
             this.writeToOutput("function ");
             this.writeToOutput(this.thisClassNode.identifier.text());
+            this.recordSourceMappingScopeStart();
             this.writeToOutput("(");
             var parameters = ASTHelpers.parametersFromParameterList(funcDecl.callSignature.parameterList);
             this.emitFunctionParameters(parameters);
@@ -1338,6 +1378,7 @@ module TypeScript {
             this.emitIndent();
             this.writeToOutputWithSourceMapRecord("}", funcDecl.block.closeBraceToken);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingNameEnd();
             this.recordSourceMappingEnd(funcDecl);
 
@@ -1348,6 +1389,7 @@ module TypeScript {
 
             this.popDecl(pullDecl);
             this.setContainer(temp);
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitGetAccessor(accessor: GetAccessor): void {
@@ -1355,6 +1397,8 @@ module TypeScript {
             this.writeToOutput("get ");
 
             var temp = this.setContainer(EmitContainer.Function);
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
 
             this.recordSourceMappingStart(accessor);
 
@@ -1369,11 +1413,13 @@ module TypeScript {
 
             this.recordSourceMappingNameStart(accessor.propertyName.text());
             this.writeToOutput(accessor.propertyName.text());
+            this.recordSourceMappingScopeStart();
             this.writeToOutput("(");
             this.writeToOutput(")");
 
             this.emitFunctionBodyStatements(null, accessor, ASTHelpers.parametersFromParameterList(accessor.parameterList), accessor.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(accessor);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -1382,6 +1428,8 @@ module TypeScript {
             this.popDecl(pullDecl);
             this.setContainer(temp);
             this.recordSourceMappingEnd(accessor);
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitSetAccessor(accessor: SetAccessor): void {
@@ -1390,6 +1438,9 @@ module TypeScript {
 
             var temp = this.setContainer(EmitContainer.Function);
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope
+            this.thisIsCapturedInScope = false;
+
             this.recordSourceMappingStart(accessor);
 
             var pullDecl = this.semanticInfoChain.getDeclForAST(accessor);
@@ -1403,6 +1454,7 @@ module TypeScript {
 
             this.recordSourceMappingNameStart(accessor.propertyName.text());
             this.writeToOutput(accessor.propertyName.text());
+            this.recordSourceMappingScopeStart();
             this.writeToOutput("(");
 
             var parameters = ASTHelpers.parametersFromParameterList(accessor.parameterList);
@@ -1411,6 +1463,7 @@ module TypeScript {
 
             this.emitFunctionBodyStatements(null, accessor, parameters, accessor.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(accessor);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -1419,11 +1472,16 @@ module TypeScript {
             this.popDecl(pullDecl);
             this.setContainer(temp);
             this.recordSourceMappingEnd(accessor);
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitFunctionExpression(funcDecl: FunctionExpression): void {
             var savedInArrowFunction = this.inArrowFunction;
             this.inArrowFunction = false;
+
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
 
             var temp = this.setContainer(EmitContainer.Function);
 
@@ -1436,10 +1494,12 @@ module TypeScript {
 
             this.recordSourceMappingStart(funcDecl);
             this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
 
             //var id = funcDecl.getNameText();
             if (funcDecl.identifier) {
                 this.recordSourceMappingStart(funcDecl.identifier);
+                this.recordSourceMappingLocal(funcDecl.identifier.text());
                 this.writeToOutput(funcDecl.identifier.text());
                 this.recordSourceMappingEnd(funcDecl.identifier);
             }
@@ -1452,6 +1512,7 @@ module TypeScript {
 
             this.emitFunctionBodyStatements(funcName, funcDecl, parameters, funcDecl.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(funcDecl);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -1463,6 +1524,7 @@ module TypeScript {
 
             this.setContainer(temp);
             this.inArrowFunction = savedInArrowFunction;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitFunction(funcDecl: FunctionDeclaration) {
@@ -1471,6 +1533,9 @@ module TypeScript {
             }
             var savedInArrowFunction = this.inArrowFunction;
             this.inArrowFunction = false;
+
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
 
             var temp = this.setContainer(EmitContainer.Function);
 
@@ -1490,6 +1555,7 @@ module TypeScript {
             if (printName) {
                 var id = funcDecl.identifier.text();
                 if (id) {
+                    this.recordSourceMappingLocal(id);
                     if (funcDecl.identifier) {
                         this.recordSourceMappingStart(funcDecl.identifier);
                     }
@@ -1500,11 +1566,13 @@ module TypeScript {
                 }
             }
 
+            this.recordSourceMappingScopeStart();
             this.emitParameterList(funcDecl.callSignature.parameterList);
 
             var parameters = ASTHelpers.parametersFromParameterList(funcDecl.callSignature.parameterList);
             this.emitFunctionBodyStatements(funcDecl.identifier.text(), funcDecl, parameters, funcDecl.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(funcDecl);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -1525,9 +1593,12 @@ module TypeScript {
                     var modName = this.emitState.container === EmitContainer.Module ? this.moduleName : "exports";
                     this.recordSourceMappingStart(funcDecl);
                     this.writeToOutput(modName + "." + funcName + " = " + funcName + ";");
+                    this.recordSourceMappingRenameLocal(funcName, modName + "." + funcName);
                     this.recordSourceMappingEnd(funcDecl);
                 }
             }
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitAmbientVarDecl(varDecl: VariableDeclarator) {
@@ -1539,6 +1610,9 @@ module TypeScript {
                 this.emitJavascript(varDecl.equalsValueClause, false);
                 this.recordSourceMappingEnd(varDecl);
                 this.emitComments(varDecl, false);
+            }
+            else {
+                this.recordSourceMappingLocal(varDecl.propertyName.text());
             }
         }
 
@@ -1578,6 +1652,12 @@ module TypeScript {
 
                 // Declarator emit would take care of emitting start of the variable declaration start
                 this.recordSourceMappingEnd(declaration);
+            }
+            else {
+                for (var i = 0, n = declaration.declarators.nonSeparatorCount(); i < n; i++) {
+                    varDecl = <VariableDeclarator>declaration.declarators.nonSeparatorAt(i);
+                    this.recordSourceMappingLocal(varDecl.propertyName.text());
+                }                
             }
 
             this.emitComments(declaration, false);
@@ -1654,18 +1734,22 @@ module TypeScript {
                     // module
                     if (!hasFlag(pullDecl.flags, PullElementFlags.Exported)/* && !varDecl.isProperty() */) {
                         this.emitVarDeclVar();
+                        this.recordSourceMappingLocal(varDeclName);
                     }
                     else {
                         if (this.emitState.container === EmitContainer.DynamicModule) {
                             this.writeToOutput("exports.");
+                            this.recordSourceMappingRenameLocal(varDeclName, "exports." + varDeclName);
                         }
                         else {
                             this.writeToOutput(this.moduleName + ".");
+                            this.recordSourceMappingRenameLocal(varDeclName, this.moduleName + "." + varDeclName);
                         }
                     }
                 }
                 else {
                     this.emitVarDeclVar();
+                    this.recordSourceMappingLocal(varDeclName);
                 }
 
                 this.writeToOutputWithSourceMapRecord(varDecl.propertyName.text(), varDecl.propertyName);
@@ -1817,7 +1901,9 @@ module TypeScript {
                             if (needToEmitParentName) {
                                 var parentDecl = pullSymbol.getDeclarations()[0].getParentDecl();
                                 Debug.assert(parentDecl && !parentDecl.isRootDecl());
-                                this.writeToOutput(this.getModuleName(parentDecl, /* changeNameIfAnyDeclarationInContext */ true) + ".");
+                                var parentName = this.getModuleName(parentDecl, /* changeNameIfAnyDeclarationInContext */ true) + ".";
+                                this.writeToOutput(parentName);
+                                this.recordSourceMappingRenameLocal(name.text(), parentName + name.text());
                             }
                         }
                         else if (pullSymbolContainerKind === PullElementKind.DynamicModule ||
@@ -1825,6 +1911,7 @@ module TypeScript {
                             if (pullSymbolKind === PullElementKind.Property) {
                                 // If dynamic module
                                 this.writeToOutput("exports.");
+                                this.recordSourceMappingRenameLocal(name.text(), "exports." + name.text());
                             }
                             else if (pullSymbol.anyDeclHasFlag(PullElementFlags.Exported) &&
                                 !isLocalAlias &&
@@ -1833,6 +1920,7 @@ module TypeScript {
                                 pullSymbol.kind !== PullElementKind.Class &&
                                 pullSymbol.kind !== PullElementKind.Enum) {
                                 this.writeToOutput("exports.");
+                                this.recordSourceMappingRenameLocal(name.text(), "exports." + name.text());
                             }
                         }
                     }
@@ -1852,22 +1940,12 @@ module TypeScript {
                     if (this.sourceMapper.currentNameIndex.length > 0) {
                         var parentNameIndex = this.sourceMapper.currentNameIndex[this.sourceMapper.currentNameIndex.length - 1];
                         if (parentNameIndex !== -1) {
-                            name = this.sourceMapper.names[parentNameIndex] + "." + name;
+                            name = this.sourceMapper.lookupName(parentNameIndex) + "." + name;
                         }
                     }
 
                     // Look if there already exists name
-                    var nameIndex = this.sourceMapper.names.length - 1;
-                    for (nameIndex; nameIndex >= 0; nameIndex--) {
-                        if (this.sourceMapper.names[nameIndex] === name) {
-                            break;
-                        }
-                    }
-
-                    if (nameIndex === -1) {
-                        nameIndex = this.sourceMapper.names.length;
-                        this.sourceMapper.names.push(name);
-                    }
+                    nameIndex = this.sourceMapper.getOrAddName(name);
                 }
                 this.sourceMapper.currentNameIndex.push(nameIndex);
             }
@@ -1931,11 +2009,43 @@ module TypeScript {
             }
         }
 
+        public recordSourceMappingScopeStart(): void {
+            if (this.sourceMapper) {
+                this.sourceMapper.pushScope(this.emitState.line, this.emitState.column);
+            }
+        }
+
+        public recordSourceMappingScopeEnd(): void {
+            if (this.sourceMapper) {
+                this.sourceMapper.popScope(this.emitState.line, this.emitState.column);
+            }
+        }
+
+        public recordSourceMappingLocal(name: string): void {
+            if (this.sourceMapper) {
+                this.sourceMapper.trackLocal(name);
+            }
+        }
+
+        public recordSourceMappingHideLocal(name: string): void {
+            if (this.sourceMapper) {
+                this.sourceMapper.hideLocal(name);
+            }
+        }
+
+        public recordSourceMappingRenameLocal(from: string, to: string): void {
+            if (this.sourceMapper) {
+                this.sourceMapper.renameLocal(from, to);
+            }
+        }
+
         // Note: may throw exception.
         public getOutputFiles(): OutputFile[] {
             // Output a source mapping.  As long as we haven't gotten any errors yet.
             var result: OutputFile[] = [];
             if (this.sourceMapper !== null) {
+                // the top level scope ends at the bottom of the generated file
+                this.recordSourceMappingScopeEnd();
                 this.sourceMapper.emitSourceMapping();
                 result.push(this.sourceMapper.getOutputFile());
             }
@@ -2181,6 +2291,9 @@ module TypeScript {
         }
 
         public emitScriptElements(sourceUnit: SourceUnit) {
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             var list = sourceUnit.moduleElements;
 
             this.emitPossibleCopyrightHeaders(sourceUnit);
@@ -2213,7 +2326,13 @@ module TypeScript {
                     importList += importAndDependencyList.importList;
                     dependencyList += importAndDependencyList.dependencyList + "]";
 
-                    this.writeLineToOutput("define(" + dependencyList + "," + " function(" + importList + ") {");
+                    this.writeToOutput("define(" + dependencyList + "," + " function");
+                    this.recordSourceMappingScopeStart();
+                    this.writeLineToOutput("(" + importList + ") {");
+
+                    for (var j = 0, l = importAndDependencyList.importNames.length; j < l; j++) {
+                        this.recordSourceMappingLocal(importAndDependencyList.importNames[j]);
+                    }
                 }
             }
 
@@ -2264,7 +2383,9 @@ module TypeScript {
                             this.writeLineToOutput(";");
                             this.indenter.decreaseIndent();
                         }
-                        this.writeToOutput("});");
+                        this.writeToOutput("}");
+                        this.recordSourceMappingScopeEnd();
+                        this.writeToOutput(");");
                     }
                     else if (exportAssignmentIdentifierText && exportAssignmentValueSymbol && !(exportAssignmentValueSymbol.kind & PullElementKind.SomeTypeReference)) {
                         this.emitIndent();
@@ -2280,6 +2401,8 @@ module TypeScript {
                 this.moduleName = svModuleName;
                 this.popDecl(externalModule);
             }
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitConstructorStatements(funcDecl: ConstructorDeclaration) {
@@ -2400,8 +2523,12 @@ module TypeScript {
             var pullDecl = this.semanticInfoChain.getDeclForAST(funcDecl);
             this.pushDecl(pullDecl);
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
+
             this.recordSourceMappingStart(funcDecl);
             this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
 
             this.writeToOutput("(");
 
@@ -2411,16 +2538,22 @@ module TypeScript {
 
             this.emitFunctionBodyStatements(null, funcDecl, parameters, block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(funcDecl);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
             this.recordSourceMappingEnd(funcDecl);
             this.popDecl(pullDecl);
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitClass(classDecl: ClassDeclaration) {
             var pullDecl = this.semanticInfoChain.getDeclForAST(classDecl);
             this.pushDecl(pullDecl);
+
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
 
             var svClassNode = this.thisClassNode;
             this.thisClassNode = classDecl;
@@ -2430,16 +2563,21 @@ module TypeScript {
 
             this.recordSourceMappingStart(classDecl);
             this.writeToOutput("var " + className);
+            this.recordSourceMappingLocal(className);
 
             var hasBaseClass = ASTHelpers.getExtendsHeritageClause(classDecl.heritageClauses) !== null;
             var baseTypeReference: AST = null;
             var varDecl: VariableDeclarator = null;
 
+            this.writeToOutput(" = (function ");
+            this.recordSourceMappingScopeStart();
+
             if (hasBaseClass) {
-                this.writeLineToOutput(" = (function (_super) {");
+                this.writeLineToOutput("(_super) {");
+                this.recordSourceMappingHideLocal("_super");
             }
             else {
-                this.writeLineToOutput(" = (function () {");
+                this.writeLineToOutput("() {");
             }
 
             this.recordSourceMappingNameStart(className);
@@ -2466,7 +2604,9 @@ module TypeScript {
                 this.recordSourceMappingStart(classDecl);
                 // default constructor
                 this.indenter.increaseIndent();
-                this.writeLineToOutput("function " + classDecl.identifier.text() + "() {");
+                this.writeToOutput("function " + classDecl.identifier.text());
+                this.recordSourceMappingScopeStart();
+                this.writeLineToOutput("() {");
                 this.recordSourceMappingNameStart("constructor");
                 if (hasBaseClass) {
                     this.emitIndent();
@@ -2483,6 +2623,7 @@ module TypeScript {
                 this.indenter.decreaseIndent();
                 this.emitIndent();
                 this.writeToOutputWithSourceMapRecord("}", classDecl.closeBraceToken);
+                this.recordSourceMappingScopeEnd();
                 this.writeLineToOutput("");
 
                 this.recordSourceMappingNameEnd();
@@ -2497,6 +2638,7 @@ module TypeScript {
             this.indenter.decreaseIndent();
             this.emitIndent();
             this.writeToOutputWithSourceMapRecord("}", classDecl.closeBraceToken);
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingNameEnd();
             this.recordSourceMappingStart(classDecl);
             this.writeToOutput(")(");
@@ -2511,12 +2653,14 @@ module TypeScript {
                 this.emitIndent();
                 var modName = temp === EmitContainer.Module ? this.moduleName : "exports";
                 this.writeToOutputWithSourceMapRecord(modName + "." + className + " = " + className + ";", classDecl);
+                this.recordSourceMappingRenameLocal(className, modName + "." + className);
             }
 
             this.recordSourceMappingEnd(classDecl);
             this.emitComments(classDecl, false);
             this.setContainer(temp);
             this.thisClassNode = svClassNode;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
 
             this.popDecl(pullDecl);
         }
@@ -2588,6 +2732,9 @@ module TypeScript {
         }
 
         private emitClassMemberFunctionDeclaration(classDecl: ClassDeclaration, funcDecl: MemberFunctionDeclaration): void {
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             this.emitIndent();
             this.recordSourceMappingStart(funcDecl);
             this.emitComments(funcDecl, true);
@@ -2611,12 +2758,14 @@ module TypeScript {
 
             this.recordSourceMappingStart(funcDecl);
             this.writeToOutput("function ");
+            this.recordSourceMappingScopeStart();
 
             this.emitParameterList(funcDecl.callSignature.parameterList);
 
             var parameters = ASTHelpers.parametersFromParameterList(funcDecl.callSignature.parameterList);
             this.emitFunctionBodyStatements(funcDecl.propertyName.text(), funcDecl, parameters, funcDecl.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(funcDecl);
 
             this.emitComments(funcDecl, false);
@@ -2625,6 +2774,8 @@ module TypeScript {
             this.popDecl(pullDecl);
 
             this.writeLineToOutput(";");
+
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         private requiresExtendsBlock(moduleElements: ISyntaxList2): boolean {
@@ -2654,6 +2805,7 @@ module TypeScript {
             if (!this.extendsPrologueEmitted) {
                 if (this.requiresExtendsBlock(sourceUnit.moduleElements)) {
                     this.extendsPrologueEmitted = true;
+                    this.recordSourceMappingHideLocal("__extends");                    
                     this.writeLineToOutput("var __extends = this.__extends || function (d, b) {");
                     this.writeLineToOutput("    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];");
                     this.writeLineToOutput("    function __() { this.constructor = d; }");
@@ -2666,6 +2818,9 @@ module TypeScript {
             if (!this.globalThisCapturePrologueEmitted) {
                 if (this.shouldCaptureThis(sourceUnit)) {
                     this.globalThisCapturePrologueEmitted = true;
+                    this.recordSourceMappingRenameLocal("this", "_this");
+                    this.recordSourceMappingHideLocal("_this");
+                    this.thisIsCapturedInScope = true;
                     this.writeLineToOutput(this.captureThisStmtString);
                 }
             }
@@ -2676,6 +2831,10 @@ module TypeScript {
                 this.writeToOutput("_this");
             }
             else {
+                if (!this.thisIsCapturedInScope) {
+                    this.recordSourceMappingLocal("this");
+                }
+
                 this.writeToOutput("this");
             }
         }
@@ -2713,6 +2872,10 @@ module TypeScript {
                 this.writeToOutputWithSourceMapRecord("_this", expression);
             }
             else {
+                if (!this.thisIsCapturedInScope) {
+                    this.recordSourceMappingLocal("this");
+                }
+
                 this.writeToOutputWithSourceMapRecord("this", expression);
             }
         }
@@ -3001,6 +3164,9 @@ module TypeScript {
             var savedInArrowFunction = this.inArrowFunction;
             this.inArrowFunction = false;
 
+            var savedThisIsCapturedInScope = this.thisIsCapturedInScope;
+            this.thisIsCapturedInScope = false;
+
             var temp = this.setContainer(EmitContainer.Function);
             var funcName = funcProp.propertyName;
 
@@ -3014,6 +3180,7 @@ module TypeScript {
             //this.writeToOutput(funcProp.propertyName.actualText);
             //this.recordSourceMappingEnd(funcProp.propertyName);
 
+            this.recordSourceMappingScopeStart();
             this.writeToOutput("(");
 
             var parameters = ASTHelpers.parametersFromParameterList(funcProp.callSignature.parameterList);
@@ -3022,6 +3189,7 @@ module TypeScript {
 
             this.emitFunctionBodyStatements(funcProp.propertyName.text(), funcProp, parameters, funcProp.block, /*bodyExpression:*/ null);
 
+            this.recordSourceMappingScopeEnd();
             this.recordSourceMappingEnd(funcProp);
 
             // The extra call is to make sure the caller's funcDecl end is recorded, since caller wont be able to record it
@@ -3033,6 +3201,7 @@ module TypeScript {
 
             this.setContainer(temp);
             this.inArrowFunction = savedInArrowFunction;
+            this.thisIsCapturedInScope = savedThisIsCapturedInScope;
         }
 
         public emitConditionalExpression(expression: ConditionalExpression): void {
@@ -3332,6 +3501,7 @@ module TypeScript {
         }
 
         public emitParameter(parameter: Parameter): void {
+            this.recordSourceMappingLocal(parameter.identifier.text());
             this.writeToOutputWithSourceMapRecord(parameter.identifier.text(), parameter);
         }
 

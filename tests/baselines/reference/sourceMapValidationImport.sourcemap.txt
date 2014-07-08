@@ -50,3 +50,7 @@ Emitted (14, 22) source (8, 14)
 Emitted (14, 23) source (8, 15)
 Emitted (14, 24) source (8, 16)
 Emitted (15, 1) source (8, 17)
+Local (1,1:15,1) name (m) renamed (exports.m)
+Local (1,1:15,1) name (b) renamed (exports.b)
+Local (1,11:8,2) name (m) restored
+Local (1,11:8,2) name (c) renamed (m.c)

@@ -1,0 +1,14 @@
+=== tests/cases/compiler/sourceMapScopeValidationRenameEnumMembers.ts ===
+enum enumWithMembers {
+>enumWithMembers : enumWithMembers
+
+  one,
+>one : enumWithMembers
+
+  two,
+>two : enumWithMembers
+
+  three = one
+>three : enumWithMembers
+>one : enumWithMembers
+}
