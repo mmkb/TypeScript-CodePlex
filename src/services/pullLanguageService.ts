@@ -1966,9 +1966,9 @@ module TypeScript.Services {
             //
             // The following three regexps are used to match the start of the text up to the TODO
             // comment portion.
-            var singleLineCommentStart = "(?:\\/\\/\\s*)";
-            var multiLineCommentStart = "(?:\\/\\*\\s*)";
-            var anyNumberOfSpacesAndAsterixesAtStartOfLine = "(?:^(?:\\s|\\*)*)";
+            var singleLineCommentStart = /(?:\/\/\s*)/.source;
+            var multiLineCommentStart = /(?:\/\*\s*)/.source;
+            var anyNumberOfSpacesAndAsterixesAtStartOfLine = /(?:^(?:\s|\*)*)/.source;
 
             // Match any of the above three TODO comment start regexps.
             // Note that the outermost group *is* a capture group.  We want to capture the preamble
@@ -1989,7 +1989,7 @@ module TypeScript.Services {
             // text up to the end of the line.  We don't want to match something like 'TODOBY', so
             // we ask for a non word character (\W) to follow the match if we're not at the end of
             // the line.
-            var postamble = "(?:(?:\\W.*$)|$)";
+            var postamble = /(?:(?:\W.*$)|$)/.source;
 
             // This is the portion of the match we'll return as part of the TODO comment result. We
             // match the literal portion up to the end of the line.
