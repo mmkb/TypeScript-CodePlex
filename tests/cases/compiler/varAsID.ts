@@ -8,7 +8,7 @@ var f = new Foo();
 
 
 class Foo2 {
-    var // error
+    var // not an error, because of ASI.
     x=1;
 }
 

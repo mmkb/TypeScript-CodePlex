@@ -1278,8 +1278,10 @@ module TypeScript.Parser {
             //      public:
             //      public }
             //      public <eof>
+            //      public <newline>
             if (SyntaxFacts.isAnyKeyword(peekToken(index).kind())) {
-                switch (peekToken(index + 1).kind()) {
+                var nextToken = peekToken(index + 1);
+                switch (nextToken.kind()) {
                     case SyntaxKind.SemicolonToken:
                     case SyntaxKind.EqualsToken:
                     case SyntaxKind.ColonToken:
@@ -1287,7 +1289,7 @@ module TypeScript.Parser {
                     case SyntaxKind.EndOfFileToken:
                        return true;
                     default:
-                        return false;
+                        return previousTokenHasTrailingNewLine(nextToken);
                 }
             }
             else {
