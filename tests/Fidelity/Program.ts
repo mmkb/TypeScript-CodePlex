@@ -8,7 +8,6 @@
 ///<reference path='..\..\src\compiler\core\environment.ts' />
 ///<reference path='..\..\src\compiler\references.ts' />
 ///<reference path='..\..\src\compiler\syntax\testUtilities.ts' />
-///<reference path='..\..\src\harness\harness.ts' />
 
 var timer = new TypeScript.Timer();
 
@@ -62,15 +61,20 @@ function tokenToJSON(token: TypeScript.ISyntaxToken, text: TypeScript.ISimpleTex
         result.isKeywordConvertedToIdentifier = true;
     }
 
+    var leadingTrivia: TypeScript.ISyntaxTriviaList = null;
     if (token.hasLeadingTrivia()) {
         result.hasLeadingTrivia = true;
+        leadingTrivia = token.leadingTrivia(text);
+    }
 
-        var leadingTrivia = token.leadingTrivia(text);
+    if (token.hasLeadingComment()) {
+        result.hasLeadingComment = true;
 
-        if (leadingTrivia.hasComment()) {
-            result.hasLeadingComment = true;
-        }
+        TypeScript.Debug.assert(token.hasLeadingTrivia());
+        TypeScript.Debug.assert(leadingTrivia.hasComment());
+    }
 
+    if (leadingTrivia) {
         if (leadingTrivia.hasNewLine()) {
             result.hasLeadingNewLine = true;
         }
@@ -78,18 +82,22 @@ function tokenToJSON(token: TypeScript.ISyntaxToken, text: TypeScript.ISimpleTex
         if (leadingTrivia.hasSkippedToken()) {
             result.hasLeadingSkippedText = true;
         }
-
     }
 
+    var trailingTrivia: TypeScript.ISyntaxTriviaList = null;
     if (token.hasTrailingTrivia()) {
         result.hasTrailingTrivia = true;
+        trailingTrivia = token.trailingTrivia(text);
+    }
 
-        var trailingTrivia = token.trailingTrivia(text);
+    if (token.hasTrailingComment()) {
+        result.hasTrailingComment = true;
 
-        if (trailingTrivia.hasComment()) {
-            result.hasTrailingComment = true;
-        }
+        TypeScript.Debug.assert(token.hasTrailingTrivia());
+        TypeScript.Debug.assert(trailingTrivia.hasComment());
+    }
 
+    if (trailingTrivia) {
         if (trailingTrivia.hasNewLine()) {
             result.hasTrailingNewLine = true;
         }
