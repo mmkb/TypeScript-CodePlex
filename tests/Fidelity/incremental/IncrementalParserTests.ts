@@ -722,5 +722,39 @@ module m3 { }\
 
             compareTrees(oldText, newTextAndChange.text, newTextAndChange.textChangeRange, -1);
         }
+
+        public static testSkippedToken1() {
+            // 'public' as a keyword should be incrementally unusable (because it has an 
+            // unterminated comment).  When we convert it to an identifier, that shouldn't
+            // change anything, and we should still get the same errors.
+            var source = "function foo() {\r\n" +
+                "            function getOccurrencesAtPosition() {\r\n" + 
+                "            switch (node) {\r\n" +
+                "                enum \r\n" +
+                "            }\r\n" +
+                "                \r\n" + 
+                "                return undefined;\r\n" +
+                "                \r\n" + 
+                "                function keywordToReferenceEntry() {\r\n" +
+                "                }\r\n" +
+                "            }\r\n" +
+                "                \r\n" +
+                "            return {\r\n" +
+                "                getEmitOutput: (filename): Bar => null,\r\n" +
+                "            };\r\n" + 
+                "        }";
+
+            var text1 = SimpleText.fromString(source);
+            var tree1 = Parser.parse("", text1, LanguageVersion.EcmaScript5, false);
+
+            var index = source.indexOf("enum ") + "enum ".length;
+            var textAndChange1 = withInsert(text1, index, "F");
+
+            var incrementalTree1 = IncrementalParser.parse(tree1, textAndChange1.textChangeRange, textAndChange1.text);
+
+            var textAndChange2 = withInsert(textAndChange1.text, index + 1, "o");
+
+            var incrementalTree2 = IncrementalParser.parse(incrementalTree1, textAndChange2.textChangeRange, textAndChange2.text);
+        }
     }
 }
