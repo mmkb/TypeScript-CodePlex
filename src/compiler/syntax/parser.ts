@@ -1048,6 +1048,7 @@ module TypeScript.Parser {
                 case SyntaxKind.ExportKeyword:
                 case SyntaxKind.PublicKeyword:
                 case SyntaxKind.PrivateKeyword:
+                case SyntaxKind.ProtectedKeyword:
                 case SyntaxKind.StaticKeyword:
                 case SyntaxKind.DeclareKeyword:
                     return true;
@@ -1663,6 +1664,7 @@ module TypeScript.Parser {
                 // ERROR RECOVERY
                 case SyntaxKind.PublicKeyword:
                 case SyntaxKind.PrivateKeyword:
+                case SyntaxKind.ProtectedKeyword:
                 case SyntaxKind.StaticKeyword:
                     // None of the above are actually keywords.  And they might show up in a real
                     // statement (i.e. "public();").  However, if we see 'public <identifier>' then 
@@ -1731,6 +1733,7 @@ module TypeScript.Parser {
                 // ERROR RECOVERY
                 case SyntaxKind.PublicKeyword:
                 case SyntaxKind.PrivateKeyword:
+                case SyntaxKind.ProtectedKeyword:
                 case SyntaxKind.StaticKeyword:
                     // None of the above are actually keywords.  And they might show up in a real
                     // statement (i.e. "public();").  However, if we see 'public <identifier>' then 
@@ -3133,7 +3136,7 @@ module TypeScript.Parser {
             token2 = peekToken(2); 
             token2Kind = token2.kind();
 
-            if (token1Kind === SyntaxKind.PublicKeyword || token1Kind === SyntaxKind.PrivateKeyword) {
+            if (SyntaxFacts.isAccessibilityModifier(token1Kind)) {
                 if (isIdentifier(token2)) {
                     // "(public id" or "(function id".  Definitely an arrow function.  Could never 
                     // be a parenthesized expression.  Note: this will be an *illegal* arrow 
